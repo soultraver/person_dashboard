@@ -84,10 +84,11 @@ const DOUYIN_INVENTORY_WORK_LIST =
 const DOUYIN_WORK_LIST_PATTERNS = [
   /作品列表导出.*Sheet1\.csv$/,
   /work-list__作品列表导出__Sheet1\.csv$/,
+  /投稿列表__作品列表.*Sheet1\.csv$/,
 ];
 
 const DOUYIN_ACCOUNT_CONTENT_30D_PATTERN =
-  /近30天-作品数据表现.*Sheet1\.csv$/;
+  /近30天-(?:作品数据表现|账号数据).*Sheet1\.csv$/;
 const DOUYIN_ACCOUNT_FOLLOWER_30D_PATTERN =
   /近30天-粉丝数据表现.*Sheet1\.csv$/;
 
@@ -1545,7 +1546,7 @@ function normalizeAccountDaily(contentRows, followerRows) {
     byDate.set(date, {
       date,
       posts: csvNumber(row["投稿量"]),
-      views: csvNumber(row["总播放量"]),
+      views: csvNumber(row["总播放量"]) ?? csvNumber(row["播放量"]),
       likes: csvNumber(row["总点赞量"]),
       comments: csvNumber(row["总评论量"]),
       fiveSecondCompletionRatePct: percentageToPct(row["5秒完播率"]),
