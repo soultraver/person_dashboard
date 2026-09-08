@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { assertSlug } from "./learning.mjs";
 
 const SOURCE_CHAR_LIMIT = 8000;
@@ -139,5 +141,77 @@ export function buildVariantPrompt({ challenge, rubric, previousSummaries }) {
       "生成同一考点、同一 rubric、不同情境的变体挑战，防止靠背答案过关。",
       "输出 JSON：{\"challenge_md\":\"\"}",
     ].join("\n"),
+  };
+}
+
+const AI_TIMEOUT_MS = 60_000;
+
+export function loadLearningAiConfig({ env = process.env, workbenchRoot = null } = {}) {
+  if (workbenchRoot) {
+    try {
+      process.loadEnvFile(path.join(workbenchRoot, ".env"));
+    } catch {
+      // .env 不存在时静默忽略，env 变量也可以由 shell 注入
+    }
+  }
+  const baseUrl = env.LEARNING_AI_BASE_URL?.trim();
+  const apiKey = env.LEARNING_AI_API_KEY?.trim();
+  const model = env.LEARNING_AI_MODEL?.trim();
+  if (!apiKey) return null;
+  return {
+    baseUrl: (baseUrl || "https://api.openai.com/v1").replace(/\/+$/, ""),
+    apiKey,
+    model: model || "gpt-4o-mini",
+  };
+}
+
+async function callChatCompletions(config, messages) {
+  let lastError = null;
+  for (let attemptNumber = 0; attemptNumber < 2; attemptNumber += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${config.baseUrl}/chat/completions`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages,
+          temperature: 0.3,
+          response_format: { type: "json_object" },
+        }),
+      });
+      if (!response.ok) {
+        lastError = new Error(`AI 请求失败 HTTP ${response.status}: ${(await response.text()).slice(0, 200)}`);
+        continue;
+      }
+      const payload = await response.json();
+      const content = payload?.choices?.[0]?.message?.content;
+      if (typeof content !== "string") throw new TypeError("AI 响应缺少 choices[0].message.content");
+      return content;
+    } catch (error) {
+      lastError = error.name === "AbortError" ? new Error("AI 请求超时（60s）") : error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastError;
+}
+
+export function createLearningAiClient(config) {
+  const run = async (prompt, parse) => parse(await callChatCompletions(config, [
+    { role: "system", content: prompt.system },
+    { role: "user", content: prompt.user },
+  ]));
+  return {
+    decompose: (input) => run(buildDecomposePrompt(input), parseDecomposeResult),
+    challenge: (input) => run(buildChallengePrompt(input), parseChallengeResult),
+    grade: (input) => run(buildGradePrompt(input), parseGradeResult),
+    gradeProbe: (input) => run(buildGradeProbePrompt(input), parseProbeGradeResult),
+    variant: (input) => run(buildVariantPrompt(input), parseVariantResult),
   };
 }

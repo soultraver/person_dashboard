@@ -7,6 +7,8 @@ import {
   buildGradeProbePrompt,
   buildGradePrompt,
   buildVariantPrompt,
+  createLearningAiClient,
+  loadLearningAiConfig,
   parseAiJson,
   parseChallengeResult,
   parseDecomposeResult,
@@ -72,4 +74,48 @@ test("buildGradePrompt and probe/variant prompts carry rubric items", () => {
   assert.match(buildGradeProbePrompt({ levelTitle: "关卡", challenge: "挑战", rubric, draftScore: 75, qa: "问答", answers: ["答"] }).user, /75/);
   assert.match(buildVariantPrompt({ challenge: "原题", rubric, previousSummaries: ["旧作答"] }).user, /原题/);
   assert.match(buildChallengePrompt({ projectTitle: "项目", levels: [{ slug: "a", title: "A", summary: "s", rubric_hints: [] }] }).user, /项目/);
+});
+
+test("loadLearningAiConfig returns null when key missing", () => {
+  assert.equal(loadLearningAiConfig({ env: {} }), null);
+  const config = loadLearningAiConfig({
+    env: {
+      LEARNING_AI_BASE_URL: "https://example.test/v1",
+      LEARNING_AI_API_KEY: "test-key",
+      LEARNING_AI_MODEL: "test-model",
+    },
+  });
+  assert.deepEqual(config, { baseUrl: "https://example.test/v1", apiKey: "test-key", model: "test-model" });
+});
+
+test("client posts chat completions and retries once on failure", async (t) => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (calls.length === 1) return { ok: false, status: 429, text: async () => "rate limited" };
+    return {
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: "{\"total\": 88, \"feedback\": \"好\", \"passed\": true}" } }] }),
+    };
+  };
+  const client = createLearningAiClient({ baseUrl: "https://example.test/v1", apiKey: "test-key", model: "test-model" });
+  const result = await client.gradeProbe({ levelTitle: "t", challenge: "c", rubric: [], draftScore: 75, qa: "", answers: ["a"] });
+  assert.equal(result.total, 88);
+  assert.equal(calls.length, 2); // 重试一次
+  assert.equal(calls[0].url, "https://example.test/v1/chat/completions");
+  assert.equal(calls[0].options.headers.Authorization, "Bearer test-key");
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.model, "test-model");
+  assert.equal(body.response_format.type, "json_object");
+  assert.equal(body.messages.length, 2);
+});
+
+test("client throws after second failure with status in message", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async () => ({ ok: false, status: 500, text: async () => "boom" });
+  const client = createLearningAiClient({ baseUrl: "https://example.test/v1", apiKey: "k", model: "m" });
+  await assert.rejects(() => client.variant({ challenge: "c", rubric: [], previousSummaries: [] }), /500/);
 });
