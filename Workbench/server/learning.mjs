@@ -294,6 +294,14 @@ export function projectsPayload(index) {
 
 export function projectDetailPayload(project, levels, attemptCounts = new Map()) {
   const states = buildLevelStates(levels);
+  // 关卡顺序以项目 frontmatter 的 levels 数组为准（章节顺序），未列出的关卡排在最后
+  const declaredOrder = project.frontmatter.levels ?? [];
+  const orderIndex = new Map(declaredOrder.map((slug, index) => [slug, index]));
+  const ordered = [...levels].sort((left, right) => {
+    const leftIndex = orderIndex.get(left.slug) ?? Number.MAX_SAFE_INTEGER;
+    const rightIndex = orderIndex.get(right.slug) ?? Number.MAX_SAFE_INTEGER;
+    return leftIndex - rightIndex || left.slug.localeCompare(right.slug, "en");
+  });
   return {
     slug: project.frontmatter.slug,
     title: project.frontmatter.title,
@@ -301,9 +309,11 @@ export function projectDetailPayload(project, levels, attemptCounts = new Map())
     sources: project.frontmatter.sources ?? [],
     body: project.body,
     progress: computeProgress(levels),
-    levels: levels.map((entry) => ({
+    levels: ordered.map((entry) => ({
       slug: entry.slug,
       title: entry.frontmatter.title,
+      chapter: entry.frontmatter.chapter ?? null,
+      source: entry.frontmatter.source ?? null,
       status: entry.frontmatter.status,
       effectiveStatus: states.get(entry.slug).effectiveStatus,
       passScore: states.get(entry.slug).passScore,

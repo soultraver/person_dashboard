@@ -37,6 +37,13 @@ import { projectsPayload } from "./learning.mjs";
 import { createLearningStore } from "./learning-store.mjs";
 import { createLearningAiClient, describeLearningAiConfig, loadLearningAiConfig, readLearningAiFileConfig, resolveLearningAiConfig, saveLearningAiFileConfig } from "./learning-ai.mjs";
 import {
+  JOB_STATUS_LABELS,
+  JOB_STATUSES,
+  createJobStore,
+  jobKey,
+} from "./job-store.mjs";
+import { createJobScorer, hardFilterJob } from "./job-match.mjs";
+import {
   getSocialInsight,
   getSocialTrend,
   listSocialInsights,
@@ -74,6 +81,7 @@ const readerImageAllowedRoots = [
   "30_self_media",
   "40_topics",
   "50_scripts",
+  "60_learning",
   "wiki",
 ];
 
@@ -226,6 +234,7 @@ function errorPayload(error) {
 
 function errorStatus(error) {
   const code = error?.code;
+  if (code === "AI_NOT_CONFIGURED") return 503;
   if (code === "LOCAL_API_ORIGIN_DENIED") return 403;
   if (code === "UNSUPPORTED_MEDIA_TYPE") return 415;
   if (
@@ -824,6 +833,31 @@ export function workbenchApiPlugin({
     vaultRoot,
     ai: () => learningAi.client,
   });
+  const jobStore = createJobStore({
+    filePath: path.join(workbenchRoot, "data", "job-tracker.local.json"),
+  });
+  const loadJobProfile = async () => {
+    try {
+      return JSON.parse(
+        await readFile(path.join(workbenchRoot, "config", "job-profile.local.json"), "utf8"),
+      );
+    } catch (error) {
+      if (error?.code === "ENOENT") return null;
+      throw error;
+    }
+  };
+  const jobTrackerPayload = async () => {
+    const [jobs, followups, today] = await Promise.all([
+      jobStore.list(),
+      jobStore.pendingFollowups(),
+      jobStore.todayRecommendations(),
+    ]);
+    const groups = JOB_STATUSES.map((status) => {
+      const items = jobs.filter((job) => job.status === status);
+      return { status, label: JOB_STATUS_LABELS[status], count: items.length, items };
+    });
+    return { generatedAt: new Date().toISOString(), total: jobs.length, followups, today, groups };
+  };
 
   async function indexedReaderDocument(documentId) {
     const document = documentPayload(await currentIndex(), documentId);
@@ -1170,6 +1204,66 @@ export function workbenchApiPlugin({
             } catch (error) { return learningError(res, error); }
           }
 
+          // 求职跟踪端点
+          if (req.method === "GET" && url.pathname === "/api/job-tracker/jobs") {
+            return json(res, 200, await jobTrackerPayload());
+          }
+
+          if (req.method === "POST" && url.pathname === "/api/job-tracker/jobs/import") {
+            const body = await readJson(req, 256 * 1024);
+            const text = String(body.text ?? "").trim();
+            if (!text) {
+              const error = new Error("JD 文本不能为空。");
+              error.code = "INVALID_JOB_IMPORT";
+              throw error;
+            }
+            if (!learningAi.config) {
+              const error = new Error("AI 未配置：请先在「系统状态」页保存 LEARNING_AI 配置。");
+              error.code = "AI_NOT_CONFIGURED";
+              throw error;
+            }
+            const scorer = createJobScorer(learningAi.config);
+            const cleaned = await scorer.importJd({ text });
+            await jobStore.upsertMany([cleaned]);
+            const jobs = await jobStore.list();
+            const key = jobKey(cleaned);
+            const job = jobs.find((entry) => entry.key === key);
+            // 有画像时顺手过滤 + 打分，让投喂的岗位直接进入推荐视野
+            const profile = await loadJobProfile();
+            if (job && profile) {
+              const filtered = hardFilterJob(job, profile);
+              await jobStore.setMatchResult(job.id, {
+                filterPass: filtered.pass,
+                filterReasons: filtered.reasons,
+              });
+              if (filtered.pass) {
+                try {
+                  const scored = await scorer.score({ profile, job });
+                  await jobStore.setMatchResult(job.id, {
+                    score: scored.score,
+                    scoreReasons: scored.reasons,
+                  });
+                } catch (scoreError) {
+                  server.config.logger.warn(`job-tracker 投喂打分失败：${scoreError.message}`);
+                }
+              }
+            }
+            return json(res, 200, {
+              job: (await jobStore.list()).find((entry) => entry.key === key) ?? null,
+            });
+          }
+
+          const jobStatusMatch = url.pathname.match(/^\/api\/job-tracker\/jobs\/([^/]+)\/status$/);
+          if (req.method === "POST" && jobStatusMatch) {
+            const body = await readJson(req, 8 * 1024);
+            const updated = await jobStore.setStatus(
+              decodeURIComponent(jobStatusMatch[1]),
+              String(body.status ?? ""),
+              { appliedAt: typeof body.appliedAt === "string" ? body.appliedAt : undefined },
+            );
+            return json(res, 200, { job: updated });
+          }
+
           // AI 代理端点
           if (req.method === "POST" && url.pathname === "/api/learning/ai/decompose") {
             try {
@@ -1285,13 +1379,20 @@ export function workbenchApiPlugin({
           if (req.method === "GET" && url.pathname.startsWith("/api/reader-images/")) {
             const id = decodeURIComponent(url.pathname.slice("/api/reader-images/".length));
             const current = await currentIndex();
-            return serveReaderImage(
-              res,
-              current,
-              vaultRoot,
-              id,
-              url.searchParams.get("src"),
-            );
+            try {
+              return await serveReaderImage(
+                res,
+                current,
+                vaultRoot,
+                id,
+                url.searchParams.get("src"),
+              );
+            } catch (error) {
+              if (error?.code === "PATH_NOT_ALLOWLISTED") {
+                return json(res, 403, { error: { message: error.message } });
+              }
+              throw error;
+            }
           }
 
           if (req.method === "GET" && url.pathname.startsWith("/api/documents/")) {

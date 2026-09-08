@@ -42,7 +42,10 @@ async function detectBlock(page) {
   if (/安全验证|滑块|拖动下方滑块|异常流量|访问受限/.test(text) || url.includes("captcha")) {
     return "触发风控验证（滑块/验证码）。请用 --headful 人工过验证后重试，或重新登录。";
   }
-  if (/登录后查看|请先登录/.test(text) && !(await page.$(".job-list-box"))) {
+  if (url.includes("/web/user") || url.includes("/verify")) {
+    return "session 已失效，请重新运行 scripts/job-boss-login.mjs。";
+  }
+  if (/登录后查看|请先登录|扫码.*登录|验证码登录/.test(text) && !(await page.$(".job-list-box"))) {
     return "session 已失效，请重新运行 scripts/job-boss-login.mjs。";
   }
   return null;

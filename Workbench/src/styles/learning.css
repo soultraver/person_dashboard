@@ -30,8 +30,28 @@
 .learning-rubric { padding-left: 18px; }
 .learning-attempt { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 8px; font-size: 13px; }
 .learning-attempt pre { white-space: pre-wrap; background: #f9fafb; padding: 8px; border-radius: 6px; }
+.learning-codex-prompt { width: 100%; min-height: 320px; font-family: "JetBrains Mono", monospace; font-size: 12px; line-height: 1.6; }
+.learning-source { max-height: 55vh; overflow: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; font-size: 13px; }
+.learning-source img { max-width: 100%; height: auto; }
+.learning-catalog { display: flex; flex-direction: column; gap: 16px; }
+.learning-catalog__group { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #fff; }
+.learning-catalog__chapter { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #f8fafc; font-weight: 600; font-size: 14px; }
+.learning-catalog__chapter-meta { color: #6b7280; font-weight: 400; font-size: 12px; }
+.learning-catalog__items { list-style: none; margin: 0; padding: 0; }
+.learning-catalog__item { display: flex; align-items: center; border-top: 1px solid #f1f5f9; }
+.learning-catalog__main { flex: 1; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: none; border: none; cursor: pointer; text-align: left; font: inherit; }
+.learning-catalog__main:hover { background: #f8fafc; }
+.learning-catalog__no { color: #2563eb; font-size: 12px; min-width: 40px; font-family: "JetBrains Mono", monospace; }
+.learning-catalog__title { flex: 1; }
+.learning-catalog__status { font-size: 12px; color: #6b7280; }
+.learning-catalog__item--available .learning-catalog__status { color: #b45309; font-weight: 600; }
+.learning-catalog__item--mastered .learning-catalog__status { color: #16a34a; }
+.learning-catalog__mastery { font-size: 12px; color: #9ca3af; }
+.learning-catalog__source { margin-right: 12px; background: none; border: 1px solid #d1d5db; border-radius: 6px; padding: 3px 10px; font-size: 12px; color: #2563eb; cursor: pointer; }
+.learning-catalog__source:hover { border-color: #2563eb; }
 .quest-map { width: 100%; height: 70vh; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; }
-.quest-node { cursor: pointer; }
+.quest-node { cursor: grab; touch-action: none; }
+.quest-node:active { cursor: grabbing; }
 .quest-node--locked circle { fill: #d1d5db; }
 .quest-node--available circle { fill: #fbbf24; filter: drop-shadow(0 0 6px #fbbf24); animation: quest-pulse 1.6s infinite; }
 .quest-node--challenged circle { fill: #3b82f6; }

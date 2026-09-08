@@ -175,11 +175,17 @@ export function readLearningAiFileConfig(workbenchRoot) {
   try {
     const raw = JSON.parse(readFileSync(path.join(workbenchRoot, LEARNING_AI_CONFIG_FILE), "utf8"));
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-    return {
+    const parsed = {
       baseUrl: typeof raw.baseUrl === "string" ? raw.baseUrl.trim() : "",
       apiKey: typeof raw.apiKey === "string" ? raw.apiKey.trim() : "",
       model: typeof raw.model === "string" ? raw.model.trim() : "",
     };
+    if (raw.headers && typeof raw.headers === "object" && !Array.isArray(raw.headers)) {
+      parsed.headers = Object.fromEntries(
+        Object.entries(raw.headers).map(([k, v]) => [k, String(v)]),
+      );
+    }
+    return parsed;
   } catch (error) {
     if (error?.code === "ENOENT") return null;
     throw error;
@@ -189,11 +195,15 @@ export function readLearningAiFileConfig(workbenchRoot) {
 export function resolveLearningAiConfig({ env = process.env, fileConfig = null } = {}) {
   const envConfig = loadLearningAiConfig({ env });
   if (fileConfig?.apiKey) {
-    return {
+    const resolved = {
       baseUrl: (fileConfig.baseUrl || envConfig?.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, ""),
       apiKey: fileConfig.apiKey,
       model: fileConfig.model || envConfig?.model || DEFAULT_MODEL,
     };
+    if (fileConfig.headers && Object.keys(fileConfig.headers).length > 0) {
+      resolved.headers = fileConfig.headers;
+    }
+    return resolved;
   }
   return envConfig;
 }
@@ -238,7 +248,7 @@ export function describeLearningAiConfig(config, source = null) {
   };
 }
 
-async function callChatCompletions(config, messages) {
+export async function callChatCompletions(config, messages) {
   let lastError = null;
   for (let attemptNumber = 0; attemptNumber < 2; attemptNumber += 1) {
     const controller = new AbortController();
@@ -250,6 +260,7 @@ async function callChatCompletions(config, messages) {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${config.apiKey}`,
+          ...(config.headers ?? {}),
         },
         body: JSON.stringify({
           model: config.model,

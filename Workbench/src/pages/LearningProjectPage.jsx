@@ -1,11 +1,149 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { PageHeader } from "../components/PageHeader";
 import { QuestMap } from "../components/learning/QuestMap";
+import { loadDocument } from "../lib/api";
+import { readableDocumentBody, readerImageRequestProps } from "../lib/reader-ui";
+import { readerRehypePlugins } from "../lib/reader-markdown";
+import { buildCodexQuizPrompt } from "../lib/codex-quiz.mjs";
 
 const STATUS_LABEL = { locked: "未解锁", available: "可挑战", challenged: "挑战中", mastered: "已通关" };
 
-function LevelDrawer({ projectSlug, levelSlug, aiConfigured, onClose, onChanged }) {
+function chapterNumber(chapter) {
+  const match = /第\s*(\d+)\s*章/.exec(chapter ?? "");
+  return match ? match[1] : null;
+}
+
+// 章节目录：大章节（关卡 frontmatter 的 chapter）→ 小章节（关卡），直达原文
+function ChapterCatalog({ levels, onSelect, onOpenDocument }) {
+  const groups = [];
+  const byChapter = new Map();
+  for (const level of levels) {
+    const key = level.chapter ?? "未分章";
+    if (!byChapter.has(key)) {
+      const group = { chapter: key, levels: [] };
+      byChapter.set(key, group);
+      groups.push(group);
+    }
+    byChapter.get(key).levels.push(level);
+  }
+  return (
+    <div className="learning-catalog">
+      {groups.map((group) => {
+        const chapterNo = chapterNumber(group.chapter);
+        const mastered = group.levels.filter((level) => level.effectiveStatus === "mastered").length;
+        return (
+          <section key={group.chapter} className="learning-catalog__group">
+            <header className="learning-catalog__chapter">
+              <span>{group.chapter}</span>
+              <span className="learning-catalog__chapter-meta">已通关 {mastered} / {group.levels.length}</span>
+            </header>
+            <ol className="learning-catalog__items">
+              {group.levels.map((level, index) => (
+                <li key={level.slug} className={`learning-catalog__item learning-catalog__item--${level.effectiveStatus}`}>
+                  <button type="button" className="learning-catalog__main" onClick={() => onSelect(level.slug)}>
+                    <span className="learning-catalog__no">{chapterNo ? `${chapterNo}.${index + 1}` : `${index + 1}`}</span>
+                    <span className="learning-catalog__title">{level.title}</span>
+                    <span className="learning-catalog__status">{STATUS_LABEL[level.effectiveStatus] ?? level.effectiveStatus}</span>
+                    <span className="learning-catalog__mastery">掌握度 {level.mastery}</span>
+                  </button>
+                  {level.source && onOpenDocument ? (
+                    <button
+                      type="button"
+                      className="learning-catalog__source"
+                      title="直接打开原文"
+                      onClick={() => onOpenDocument(level.source)}
+                    >
+                      原文
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+// 关卡挂接的 Vault 原文，复用阅读器的 Markdown 渲染与图片代理
+function SourceContent({ source }) {
+  const [state, setState] = useState({ loading: true, document: null, error: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ loading: true, document: null, error: null });
+    loadDocument(source).then((response) => {
+      if (cancelled) return;
+      setState({ loading: false, document: response.data, error: response.error });
+    });
+    return () => { cancelled = true; };
+  }, [source]);
+
+  if (state.loading) return <p className="learning-empty">原文加载中…</p>;
+  const body = readableDocumentBody(state.document);
+  if (!body) return <p className="learning-empty">原文内容不可用。</p>;
+  return (
+    <article className="markdown reader-markdown learning-source">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={readerRehypePlugins}
+        components={{
+          img({ node, src, alt, ...props }) {
+            return <img {...props} {...readerImageRequestProps(src, state.document.id)} alt={alt || ""} />;
+          },
+        }}
+      >
+        {body}
+      </ReactMarkdown>
+    </article>
+  );
+}
+
+function CodexQuizModal({ projectTitle, detail, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const prompt = buildCodexQuizPrompt({
+    projectTitle,
+    level: {
+      title: detail.frontmatter.title,
+      notes: detail.notes,
+      rubric: detail.rubric,
+      source: detail.frontmatter.source ?? null,
+    },
+  });
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+    } catch {
+      // 剪贴板 API 不可用时退化为手动选择
+    }
+    setCopied(true);
+  };
+
+  return (
+    <div className="learning-modal" role="dialog" aria-label="Codex 对话校验">
+      <div className="learning-modal__body">
+        <h2>Codex 对话校验</h2>
+        <p className="learning-notice">
+          复制下面的提示词，粘贴到 Codex 对话中。Codex 会阅读原文并逐题考察你对本关卡的掌握情况，结束后给出掌握度总评。
+        </p>
+        <textarea className="learning-codex-prompt" readOnly value={prompt} onFocus={(event) => event.target.select()} />
+        <div className="learning-toolbar">
+          <button type="button" className="learning-primary" onClick={copy}>
+            {copied ? "已复制，去 Codex 粘贴" : "复制提示词"}
+          </button>
+          <button type="button" className="learning-link" onClick={onClose}>关闭</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LevelDrawer({ projectSlug, levelSlug, projectTitle, aiConfigured, onOpenDocument, onClose, onChanged }) {
   const [detail, setDetail] = useState(null);
   const [attempts, setAttempts] = useState([]);
   const [submission, setSubmission] = useState("");
@@ -14,6 +152,7 @@ function LevelDrawer({ projectSlug, levelSlug, aiConfigured, onClose, onChanged 
   const [answers, setAnswers] = useState([]);
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [codexOpen, setCodexOpen] = useState(false);
 
   const load = useCallback(async () => {
     const [levelResponse, attemptsResponse] = await Promise.all([
@@ -106,6 +245,27 @@ function LevelDrawer({ projectSlug, levelSlug, aiConfigured, onClose, onChanged 
         {detail.rubric.map((entry) => <li key={entry.item}>[{entry.points}分] {entry.item}</li>)}
       </ul>
 
+      {detail.frontmatter.source ? (
+        <>
+          <h3>
+            知识点原文（{detail.frontmatter.source.split("/").pop()}）
+            {onOpenDocument ? (
+              <button type="button" className="learning-link" onClick={() => onOpenDocument(detail.frontmatter.source)}>
+                在阅读器中打开
+              </button>
+            ) : null}
+          </h3>
+          <SourceContent source={detail.frontmatter.source} />
+        </>
+      ) : null}
+
+      <h3>Codex 对话校验</h3>
+      <div className="learning-toolbar">
+        <button type="button" className="learning-primary" onClick={() => setCodexOpen(true)}>
+          生成考核提示词
+        </button>
+      </div>
+
       {status !== "locked" && status !== "mastered" ? (
         <>
           <h3>提交产物</h3>
@@ -146,11 +306,14 @@ function LevelDrawer({ projectSlug, levelSlug, aiConfigured, onClose, onChanged 
           <pre>{attempt.body.slice(0, 600)}</pre>
         </div>
       ))}
+      {codexOpen ? (
+        <CodexQuizModal projectTitle={projectTitle} detail={detail} onClose={() => setCodexOpen(false)} />
+      ) : null}
     </aside>
   );
 }
 
-export function LearningProjectPage() {
+export function LearningProjectPage({ onOpenDocument }) {
   const { projectSlug } = useParams();
   const [detail, setDetail] = useState(null);
   const [tab, setTab] = useState("map");
@@ -179,6 +342,12 @@ export function LearningProjectPage() {
 
       {tab === "map" ? (
         <QuestMap levels={detail.levels} onSelect={(level) => setSelected(level.slug)} />
+      ) : detail.levels.some((level) => level.chapter) ? (
+        <ChapterCatalog
+          levels={detail.levels}
+          onSelect={(slug) => setSelected(slug)}
+          onOpenDocument={onOpenDocument}
+        />
       ) : (
         <table className="learning-table">
           <thead>
@@ -202,7 +371,9 @@ export function LearningProjectPage() {
         <LevelDrawer
           projectSlug={projectSlug}
           levelSlug={selected}
+          projectTitle={detail.title}
           aiConfigured={detail.aiConfigured}
+          onOpenDocument={onOpenDocument}
           onClose={() => setSelected(null)}
           onChanged={load}
         />

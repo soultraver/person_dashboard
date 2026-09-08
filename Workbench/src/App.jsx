@@ -11,6 +11,7 @@ import { MaterialsPage } from "./pages/MaterialsPage";
 import { BooksPage } from "./pages/BooksPage";
 import { LearningPage } from "./pages/LearningPage";
 import { LearningProjectPage } from "./pages/LearningProjectPage";
+import { JobTrackerPage } from "./pages/JobTrackerPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { SystemPage } from "./pages/SystemPage";
 import { TopicsPage } from "./pages/TopicsPage";
@@ -94,7 +95,10 @@ export function App() {
             element={<MaterialsPage onOpenDocument={openDocument} />}
           />
           <Route path="/learning" element={<LearningPage />} />
-          <Route path="/learning/:projectSlug" element={<LearningProjectPage />} />
+          <Route path="/learning/:projectSlug" element={<LearningProjectPage onOpenDocument={openDocument} />} />
+          {localWorkbench ? (
+            <Route path="/jobs" element={<JobTrackerPage />} />
+          ) : null}
           <Route path="/books" element={<BooksPage onOpenDocument={openDocument} />} />
           <Route path="/books/:bookId" element={<BooksPage onOpenDocument={openDocument} />} />
           <Route path="/daily-hot" element={<DailyHotPage />} />
