@@ -1477,11 +1477,11 @@ test("loadLearningAiConfig returns null when key missing", () => {
   const config = loadLearningAiConfig({
     env: {
       LEARNING_AI_BASE_URL: "https://example.test/v1",
-      LEARNING_AI_API_KEY: "test-key",
+      LEARNING_AI_API_KEY: "tk",
       LEARNING_AI_MODEL: "test-model",
     },
   });
-  assert.deepEqual(config, { baseUrl: "https://example.test/v1", apiKey: "test-key", model: "test-model" });
+  assert.deepEqual(config, { baseUrl: "https://example.test/v1", apiKey: "tk", model: "test-model" });
 });
 
 test("client posts chat completions and retries once on failure", async (t) => {
@@ -1496,12 +1496,12 @@ test("client posts chat completions and retries once on failure", async (t) => {
       json: async () => ({ choices: [{ message: { content: "{\"total\": 88, \"feedback\": \"好\", \"passed\": true}" } }] }),
     };
   };
-  const client = createLearningAiClient({ baseUrl: "https://example.test/v1", apiKey: "test-key", model: "test-model" });
+  const client = createLearningAiClient({ baseUrl: "https://example.test/v1", apiKey: "tk", model: "test-model" });
   const result = await client.gradeProbe({ levelTitle: "t", challenge: "c", rubric: [], draftScore: 75, qa: "", answers: ["a"] });
   assert.equal(result.total, 88);
   assert.equal(calls.length, 2); // 重试一次
   assert.equal(calls[0].url, "https://example.test/v1/chat/completions");
-  assert.equal(calls[0].options.headers.Authorization, "Bearer test-key");
+  assert.equal(calls[0].options.headers.Authorization, "Bearer tk");
   const body = JSON.parse(calls[0].options.body);
   assert.equal(body.model, "test-model");
   assert.equal(body.response_format.type, "json_object");
