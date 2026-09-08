@@ -51,7 +51,7 @@
 - 创建：`Workbench/server/learning.mjs`
 - 测试：`Workbench/tests/learning-schema.test.mjs`
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 ```js
 import assert from "node:assert/strict";
@@ -154,12 +154,12 @@ test("level status enum is exactly the four states", () => {
 });
 ```
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`node --test tests/learning-schema.test.mjs`
 预期：FAIL，报错 `Cannot find module '../server/learning.mjs'`
 
-- [ ] **步骤 3：编写实现代码**
+- [x] **步骤 3：编写实现代码**
 
 创建 `Workbench/server/learning.mjs`：
 
@@ -354,12 +354,12 @@ export function replaceSection(body, heading, content) {
 }
 ```
 
-- [ ] **步骤 4：运行测试验证通过**
+- [x] **步骤 4：运行测试验证通过**
 
 运行：`node --test tests/learning-schema.test.mjs`
 预期：PASS(5 个用例）
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add Workbench/server/learning.mjs Workbench/tests/learning-schema.test.mjs
@@ -374,7 +374,7 @@ git commit -m "feat(learning): add learning document schema parsing"
 - 修改:`Workbench/server/learning.mjs`
 - 测试：`Workbench/tests/learning-unlock.test.mjs`
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 ```js
 import assert from "node:assert/strict";
@@ -502,12 +502,12 @@ test("projectDetailPayload assembles dag with effective status and pass score", 
 });
 ```
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行:`node --test tests/learning-unlock.test.mjs`
 预期：FAIL，报错 `validateDag is not a function`
 
-- [ ] **步骤 3：编写实现代码**
+- [x] **步骤 3：编写实现代码**
 
 在 `Workbench/server/learning.mjs` 末尾追加：
 
@@ -640,12 +640,12 @@ export function projectDetailPayload(project, levels, attemptCounts = new Map())
 }
 ```
 
-- [ ] **步骤 4：运行测试验证通过**
+- [x] **步骤 4：运行测试验证通过**
 
 运行：`node --test tests/learning-schema.test.mjs tests/learning-unlock.test.mjs`
 预期：PASS(10 个用例）
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add Workbench/server/learning.mjs Workbench/tests/learning-unlock.test.mjs
@@ -660,7 +660,7 @@ git commit -m "feat(learning): add dag validation, unlock states and payloads"
 - 创建:`Workbench/server/learning-store.mjs`
 - 测试：`Workbench/tests/learning-unlock.test.mjs`（追加 store 用例）
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 在 `Workbench/tests/learning-unlock.test.mjs` 末尾追加：
 
@@ -780,12 +780,12 @@ test("selfAssess marks self-assessed and never overrides ai-verified", async (t)
 });
 ```
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`node --test tests/learning-unlock.test.mjs`
 预期：FAIL，报错 `Cannot find module '../server/learning-store.mjs'`
 
-- [ ] **步骤 3：编写实现代码**
+- [x] **步骤 3：编写实现代码**
 
 创建 `Workbench/server/learning-store.mjs`：
 
@@ -1190,12 +1190,12 @@ export function createLearningStore({ vaultRoot, ai = null }) {
 
 注意：上面 `createProject` 的测试里第一处断言写法啰嗦，实现时把测试改成直接断言返回的 slug 等于传入或生成的值（`assert.equal(slug, "demo")` 对应传入 slug 的用例；未传 slug 的用例断言 `assert.match(slug, /^[a-z0-9-]+$/)`）。
 
-- [ ] **步骤 4：运行测试验证通过**
+- [x] **步骤 4：运行测试验证通过**
 
 运行：`node --test tests/learning-unlock.test.mjs`
 预期：PASS（任务 2 的 6 个 + 本任务 4 个用例）
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add Workbench/server/learning-store.mjs Workbench/tests/learning-unlock.test.mjs
@@ -1210,7 +1210,7 @@ git commit -m "feat(learning): add vault store with submit/probe/self-assess flo
 - 创建：`Workbench/server/learning-ai.mjs`
 - 测试：`Workbench/tests/learning-ai.test.mjs`
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 ```js
 import assert from "node:assert/strict";
@@ -1290,12 +1290,12 @@ test("buildGradePrompt and probe/variant prompts carry rubric items", () => {
 });
 ```
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`node --test tests/learning-ai.test.mjs`
 预期：FAIL，报错 `Cannot find module '../server/learning-ai.mjs'`
 
-- [ ] **步骤 3：编写实现代码**
+- [x] **步骤 3：编写实现代码**
 
 创建 `Workbench/server/learning-ai.mjs`：
 
@@ -1445,12 +1445,12 @@ export function buildVariantPrompt({ challenge, rubric, previousSummaries }) {
 }
 ```
 
-- [ ] **步骤 4：运行测试验证通过**
+- [x] **步骤 4：运行测试验证通过**
 
 运行：`node --test tests/learning-ai.test.mjs`
 预期：PASS(7 个用例）
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add Workbench/server/learning-ai.mjs Workbench/tests/learning-ai.test.mjs
@@ -1465,7 +1465,7 @@ git commit -m "feat(learning): add ai prompt builders and result parsers"
 - 修改:`Workbench/server/learning-ai.mjs`
 - 测试：`Workbench/tests/learning-ai.test.mjs`（追加）
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 在 `Workbench/tests/learning-ai.test.mjs` 末尾追加：
 
@@ -1517,12 +1517,12 @@ test("client throws after second failure with status in message", async (t) => {
 });
 ```
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`node --test tests/learning-ai.test.mjs`
 预期：FAIL，报错 `createLearningAiClient is not a function`
 
-- [ ] **步骤 3：编写实现代码**
+- [x] **步骤 3：编写实现代码**
 
 在 `Workbench/server/learning-ai.mjs` 末尾追加：
 
@@ -1604,12 +1604,12 @@ export function createLearningAiClient(config) {
 
 注意：`loadLearningAiConfig` 里 `process.loadEnvFile` 会把 `.env` 值灌入 `process.env`，但函数读取的是入参 `env`——测试传自定义 env 时不传 workbenchRoot，生产调用不传 env 时用 process.env，两者不冲突。
 
-- [ ] **步骤 4：运行测试验证通过**
+- [x] **步骤 4：运行测试验证通过**
 
 运行：`node --test tests/learning-ai.test.mjs`
 预期：PASS(10 个用例）
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add Workbench/server/learning-ai.mjs Workbench/tests/learning-ai.test.mjs Workbench/.env.example
@@ -1632,7 +1632,7 @@ LEARNING_AI_MODEL=qwen-plus
 **文件：**
 - 修改:`Workbench/server/vite-plugin-workbench.mjs`
 
-- [ ] **步骤 1：加 import 与 store 初始化**
+- [x] **步骤 1：加 import 与 store 初始化**
 
 在文件顶部 import 区（`import { booksPayload } from "./books.mjs";` 之后）加：
 
@@ -1653,7 +1653,7 @@ const learningStore = createLearningStore({
 });
 ```
 
-- [ ] **步骤 2：注册读端点**
+- [x] **步骤 2：注册读端点**
 
 在 `if (req.method === "GET" && url.pathname === "/api/books") { ... }` 块之后插入：
 
@@ -1707,11 +1707,11 @@ function learningError(res, error) {
 
 所有 learning 写端点用 `try { ... } catch (error) { return learningError(res, error); }` 包裹。
 
-- [ ] **步骤 3：手动验证**
+- [x] **步骤 3：手动验证**
 
 运行 `npm run dev`，浏览器或 curl 访问 `http://localhost:5173/api/learning/projects`，预期返回 `200` 且含 `projects` 数组与 `aiConfigured` 字段（此时为 0 个项目，`total: 0`）。
 
-- [ ] **步骤 4：Commit**
+- [x] **步骤 4：Commit**
 
 ```bash
 git add Workbench/server/vite-plugin-workbench.mjs
@@ -1725,7 +1725,7 @@ git commit -m "feat(learning): register learning read endpoints"
 **文件：**
 - 修改:`Workbench/server/vite-plugin-workbench.mjs`
 
-- [ ] **步骤 1：注册写端点**
+- [x] **步骤 1：注册写端点**
 
 在任务 6 的读端点之后插入（全部用 try/catch + learningError 包裹，写操作完成后调 `await refreshIndex({ reason: "learning" })` 刷新索引）:
 
@@ -1839,7 +1839,7 @@ if (req.method === "POST" && url.pathname === "/api/learning/ai/challenge") {
 
 注意：`learningLevelMatch` 在任务 6 已定义，本任务直接复用；decompose/challenge 走 `learningAiClient`（任务 6 初始化），不进 store。
 
-- [ ] **步骤 2：手动验证**
+- [x] **步骤 2：手动验证**
 
 `npm run dev` 后用 curl 创建项目：
 
@@ -1850,7 +1850,7 @@ curl http://localhost:5173/api/learning/projects/demo
 
 预期：创建返回 `{"slug":"demo"}`；详情返回 progress 为 `{total:0,...}`。验证后删除 `个人知识库/60_learning/demo/` 目录。
 
-- [ ] **步骤 3：Commit**
+- [x] **步骤 3：Commit**
 
 ```bash
 git add Workbench/server/vite-plugin-workbench.mjs
@@ -1868,7 +1868,7 @@ git commit -m "feat(learning): register learning write and ai endpoints"
 - 创建：`个人知识库/60_learning/react-state-management/levels/zustand-store.md`
 - 创建：`个人知识库/60_learning/react-state-management/attempts/react-rerender/20260901-200000.md`
 
-- [ ] **步骤 1：写 demo 文件**
+- [x] **步骤 1：写 demo 文件**
 
 `index.md`（注意所有内容为虚构，标注合成演示；日期用 2026-09-01，不引用任何真实个人数据）:
 
@@ -2010,16 +2010,16 @@ created: 2026-09-01T20:00:00+08:00
 合成演示反馈：理解扎实，可以进入 Context 关卡。
 ```
 
-- [ ] **步骤 2：验证 demo 通过门禁**
+- [x] **步骤 2：验证 demo 通过门禁**
 
 运行：`node --test tests/data-authenticity.test.mjs tests/public-boundaries.test.mjs && node scripts/privacy-scan.mjs`
 预期：全部 PASS（新 demo 不破坏既有测试；privacy-scan 无命中）
 
-- [ ] **步骤 3：手动验证 API 读到 demo**
+- [x] **步骤 3：手动验证 API 读到 demo**
 
 `npm run dev` 后访问 `/api/learning/projects`，预期 `total: 1`，项目 `react-state-management` 的 progress 为 `{total: 3, mastered: 1, percent: 33}`。
 
-- [ ] **步骤 4：Commit**
+- [x] **步骤 4：Commit**
 
 ```bash
 git add 个人知识库/60_learning
@@ -2034,7 +2034,7 @@ git commit -m "feat(learning): add synthetic learning quest demo vault content"
 - 创建：`Workbench/src/pages/LearningPage.jsx`
 - 创建：`Workbench/src/styles/learning.css`
 
-- [ ] **步骤 1：编写组件与样式**
+- [x] **步骤 1：编写组件与样式**
 
 `Workbench/src/pages/LearningPage.jsx`:
 
@@ -2301,11 +2301,11 @@ export function LearningPage() {
 @keyframes quest-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 ```
 
-- [ ] **步骤 2：手动验证**
+- [x] **步骤 2：手动验证**
 
 `npm run dev`，打开 `/learning`（路由在任务 12 注册，此步骤可先用直接组件渲染或等任务 12 一并验证）。预期：看到 demo 项目卡片，进度 33%；点「新建学习项目」弹出向导。
 
-- [ ] **步骤 3：Commit**
+- [x] **步骤 3：Commit**
 
 ```bash
 git add Workbench/src/pages/LearningPage.jsx Workbench/src/styles/learning.css Workbench/src/styles.css
@@ -2319,7 +2319,7 @@ git commit -m "feat(learning): add learning projects page with creation wizard"
 **文件：**
 - 创建：`Workbench/src/pages/LearningProjectPage.jsx`
 
-- [ ] **步骤 1：编写组件**
+- [x] **步骤 1：编写组件**
 
 ```jsx
 import { useCallback, useEffect, useState } from "react";
@@ -2536,11 +2536,11 @@ export function LearningProjectPage() {
 }
 ```
 
-- [ ] **步骤 2：手动验证**
+- [x] **步骤 2：手动验证**
 
 `npm run dev`，进入 `/learning/react-state-management`：切到「关卡管理」Tab，点击 `context-basics` 行打开抽屉，看到挑战与 rubric；`react-rerender` 显示「已通关 · AI 验证通关」与 90 分掌握度，验证历史有 1 条。
 
-- [ ] **步骤 3：Commit**
+- [x] **步骤 3：Commit**
 
 ```bash
 git add Workbench/src/pages/LearningProjectPage.jsx
@@ -2554,7 +2554,7 @@ git commit -m "feat(learning): add project page with level drawer and challenge 
 **文件：**
 - 创建：`Workbench/src/components/learning/QuestMap.jsx`
 
-- [ ] **步骤 1：编写组件**
+- [x] **步骤 1：编写组件**
 
 ```jsx
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -2646,11 +2646,11 @@ export function QuestMap({ levels, onSelect }) {
 }
 ```
 
-- [ ] **步骤 2：手动验证**
+- [x] **步骤 2：手动验证**
 
 `npm run dev`，进入 `/learning/react-state-management` 的「闯关地图」Tab:`react-rerender` 绿色含 90 分、`context-basics` 黄色脉冲、`zustand-store` 灰色；边从 `react-rerender` 指向 `context-basics` 且为绿色。点击节点打开抽屉。
 
-- [ ] **步骤 3：Commit**
+- [x] **步骤 3：Commit**
 
 ```bash
 git add Workbench/src/components/learning/QuestMap.jsx
@@ -2666,7 +2666,7 @@ git commit -m "feat(learning): add d3-force quest map"
 - 修改：`Workbench/src/components/AppShell.jsx`
 - 修改：`Workbench/package.json`
 
-- [ ] **步骤 1:App.jsx 注册路由**
+- [x] **步骤 1:App.jsx 注册路由**
 
 import 区加：
 
@@ -2682,7 +2682,7 @@ import { LearningProjectPage } from "./pages/LearningProjectPage";
 <Route path="/learning/:projectSlug" element={<LearningProjectPage />} />
 ```
 
-- [ ] **步骤 2:AppShell.jsx 注册导航**
+- [x] **步骤 2:AppShell.jsx 注册导航**
 
 import 区加 `IconTrophy`（来自 `@tabler/icons-react`，与现有 icon 同一来源），导航数组在 `{ to: "/books", ... }` 之后加：
 
@@ -2690,7 +2690,7 @@ import 区加 `IconTrophy`（来自 `@tabler/icons-react`，与现有 icon 同�
 { to: "/learning", label: "学习闯关", icon: IconTrophy },
 ```
 
-- [ ] **步骤 3:package.json 加脚本**
+- [x] **步骤 3:package.json 加脚本**
 
 scripts 中 `"test:books"` 之后加：
 
@@ -2698,11 +2698,11 @@ scripts 中 `"test:books"` 之后加：
 "test:learning": "node --test tests/learning-schema.test.mjs tests/learning-unlock.test.mjs tests/learning-ai.test.mjs",
 ```
 
-- [ ] **步骤 4：手动验证**
+- [x] **步骤 4：手动验证**
 
 `npm run dev`：侧边导航出现「学习闯关」，点击进入 `/learning`；点击卡片进入项目页。
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git add Workbench/src/App.jsx Workbench/src/components/AppShell.jsx Workbench/package.json
@@ -2715,21 +2715,21 @@ git commit -m "feat(learning): wire learning routes and navigation"
 
 **文件：** 无新文件
 
-- [ ] **步骤 1：全量测试**
+- [x] **步骤 1：全量测试**
 
 运行（在 `Workbench/` 下）:`npm test`
 预期：全部测试 PASS（含新增 20 个 learning 用例；`npm test` 内含 build）
 
-- [ ] **步骤 2:隐私扫描**
+- [x] **步骤 2:隐私扫描**
 
 运行：`npm run privacy:scan`
 预期：无命中（检查 `.env.example` 未被判为凭据赋值、demo 无个人标识）
 
-- [ ] **步骤 3:修复任何失败**
+- [x] **步骤 3:修复任何失败**
 
 如有失败，修复后重跑步骤 1-2，直到全绿。
 
-- [ ] **步骤 4：最终 Commit**
+- [x] **步骤 4：最终 Commit**
 
 ```bash
 git add -A
