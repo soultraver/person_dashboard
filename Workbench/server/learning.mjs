@@ -49,6 +49,7 @@ export function parseFrontmatter(text) {
 function serializeScalar(value) {
   if (value === null || value === undefined) return "null";
   if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value === "") return '""';
   return String(value);
 }
 
