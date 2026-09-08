@@ -33,6 +33,9 @@ import {
   materialsHomePayload,
 } from "./materials.mjs";
 import { booksPayload } from "./books.mjs";
+import { projectsPayload } from "./learning.mjs";
+import { createLearningStore } from "./learning-store.mjs";
+import { createLearningAiClient, loadLearningAiConfig } from "./learning-ai.mjs";
 import {
   getSocialInsight,
   getSocialTrend,
@@ -194,6 +197,20 @@ async function serveReaderImage(res, index, vaultRoot, sourceId, source) {
     "X-Content-Type-Options": "nosniff",
   });
   res.end(buffer);
+}
+
+function learningError(res, error) {
+  const statusByCode = {
+    AI_NOT_CONFIGURED: 503,
+    DAG_INVALID: 422,
+    EMPTY_SUBMISSION: 422,
+    LEVEL_LOCKED: 409,
+    LEVEL_MASTERED: 409,
+    ATTEMPT_NOT_PENDING: 409,
+    REF_OUT_OF_VAULT: 422,
+  };
+  const status = statusByCode[error.code] ?? (error.code === "ENOENT" ? 404 : 500);
+  return json(res, status, { error: { code: error.code ?? "LEARNING_ERROR", message: error.message } });
 }
 
 function errorPayload(error) {
@@ -789,6 +806,12 @@ export function workbenchApiPlugin({
     reason: "manual",
     ...options,
   });
+  const learningAiConfig = loadLearningAiConfig({ workbenchRoot });
+  const learningAiClient = learningAiConfig ? createLearningAiClient(learningAiConfig) : null;
+  const learningStore = createLearningStore({
+    vaultRoot,
+    ai: learningAiClient,
+  });
 
   async function indexedReaderDocument(documentId) {
     const document = documentPayload(await currentIndex(), documentId);
@@ -1005,6 +1028,40 @@ export function workbenchApiPlugin({
 
           if (req.method === "GET" && url.pathname === "/api/books") {
             return json(res, 200, booksPayload(await currentIndex()));
+          }
+
+          if (req.method === "GET" && url.pathname === "/api/learning/projects") {
+            return json(res, 200, {
+              ...projectsPayload(await currentIndex()),
+              aiConfigured: Boolean(learningAiConfig),
+            });
+          }
+
+          const learningProjectMatch = url.pathname.match(/^\/api\/learning\/projects\/([a-z0-9-]+)$/);
+          if (req.method === "GET" && learningProjectMatch) {
+            try {
+              return json(res, 200, {
+                ...(await learningStore.readProjectDetail(learningProjectMatch[1])),
+                aiConfigured: Boolean(learningAiConfig),
+              });
+            } catch (error) { return learningError(res, error); }
+          }
+
+          const learningLevelMatch = url.pathname.match(/^\/api\/learning\/projects\/([a-z0-9-]+)\/levels\/([a-z0-9-]+)$/);
+          if (req.method === "GET" && learningLevelMatch) {
+            try {
+              return json(res, 200, await learningStore.readLevelDetail(learningLevelMatch[1], learningLevelMatch[2]));
+            } catch (error) { return learningError(res, error); }
+          }
+
+          const learningAttemptsMatch = url.pathname.match(/^\/api\/learning\/projects\/([a-z0-9-]+)\/levels\/([a-z0-9-]+)\/attempts$/);
+          if (req.method === "GET" && learningAttemptsMatch) {
+            try {
+              const attempts = await learningStore.listAttempts(learningAttemptsMatch[1], learningAttemptsMatch[2]);
+              return json(res, 200, {
+                attempts: attempts.map((entry) => ({ id: entry.id, ...entry.frontmatter, body: entry.body })),
+              });
+            } catch (error) { return learningError(res, error); }
           }
 
           if (req.method === "GET" && url.pathname === "/api/materials/folder") {
