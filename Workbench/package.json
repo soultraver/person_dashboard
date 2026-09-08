@@ -16,6 +16,7 @@
     "test:social-insights": "node --test tests/social-insights.test.mjs tests/social-insights-ui.test.mjs",
     "test:materials": "node --test tests/materials.test.mjs tests/material-reading-state.test.mjs",
     "test:books": "node --test tests/books.test.mjs tests/book-reading-progress.test.mjs",
+    "test:learning": "node --test tests/learning-schema.test.mjs tests/learning-unlock.test.mjs tests/learning-ai.test.mjs",
     "test:vault-sync": "node --test tests/vault-sync.test.mjs",
     "test:graph-motion": "node --test tests/graph-v6-motion.test.mjs tests/graph-v6-model.test.mjs",
     "test:reader-anchors": "node --test tests/reader-anchors.test.mjs",
