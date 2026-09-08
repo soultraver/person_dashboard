@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -8,12 +11,16 @@ import {
   buildGradePrompt,
   buildVariantPrompt,
   createLearningAiClient,
+  describeLearningAiConfig,
   loadLearningAiConfig,
   parseAiJson,
   parseChallengeResult,
   parseDecomposeResult,
   parseGradeResult,
   parseVariantResult,
+  readLearningAiFileConfig,
+  resolveLearningAiConfig,
+  saveLearningAiFileConfig,
 } from "../server/learning-ai.mjs";
 
 test("buildDecomposePrompt embeds project and sources with truncation note", () => {
@@ -118,4 +125,71 @@ test("client throws after second failure with status in message", async (t) => {
   globalThis.fetch = async () => ({ ok: false, status: 500, text: async () => "boom" });
   const client = createLearningAiClient({ baseUrl: "https://example.test/v1", apiKey: "k", model: "m" });
   await assert.rejects(() => client.variant({ challenge: "c", rubric: [], previousSummaries: [] }), /500/);
+});
+
+test("resolveLearningAiConfig prefers file config and falls back to env", () => {
+  const env = {
+    LEARNING_AI_BASE_URL: "https://env.test/v1/",
+    LEARNING_AI_API_KEY: "env-key",
+    LEARNING_AI_MODEL: "env-model",
+  };
+  assert.deepEqual(resolveLearningAiConfig({ env, fileConfig: { baseUrl: "https://file.test/v1", apiKey: "fk", model: "file-model" } }), {
+    baseUrl: "https://file.test/v1",
+    apiKey: "fk",
+    model: "file-model",
+  });
+  // 文件字段留空时逐字段回落到 env / 默认值
+  assert.deepEqual(resolveLearningAiConfig({ env, fileConfig: { baseUrl: "", apiKey: "fk", model: "" } }), {
+    baseUrl: "https://env.test/v1",
+    apiKey: "fk",
+    model: "env-model",
+  });
+  assert.deepEqual(resolveLearningAiConfig({ env, fileConfig: null }), {
+    baseUrl: "https://env.test/v1",
+    apiKey: "env-key",
+    model: "env-model",
+  });
+  assert.equal(resolveLearningAiConfig({ env: {}, fileConfig: null }), null);
+});
+
+test("saveLearningAiFileConfig round-trips and keeps existing key when blank", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "learning-ai-config-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+
+  await assert.rejects(() => saveLearningAiFileConfig(root, {}), /API Key/);
+  await assert.rejects(
+    () => saveLearningAiFileConfig(root, { apiKey: "key-1", baseUrl: "not-a-url" }),
+    /http/,
+  );
+
+  await saveLearningAiFileConfig(root, { baseUrl: "https://dashscope.test/v1", apiKey: "key-1", model: "qwen-plus" });
+  assert.deepEqual(readLearningAiFileConfig(root), {
+    baseUrl: "https://dashscope.test/v1",
+    apiKey: "key-1",
+    model: "qwen-plus",
+  });
+
+  // 只改 model，apiKey 留空保留旧值
+  await saveLearningAiFileConfig(root, { model: "qwen-max" });
+  assert.deepEqual(readLearningAiFileConfig(root), {
+    baseUrl: "https://dashscope.test/v1",
+    apiKey: "key-1",
+    model: "qwen-max",
+  });
+});
+
+test("readLearningAiFileConfig returns null when file missing", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "learning-ai-missing-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  assert.equal(readLearningAiFileConfig(root), null);
+});
+
+test("describeLearningAiConfig masks the api key", () => {
+  assert.deepEqual(describeLearningAiConfig(null), {
+    configured: false, baseUrl: null, model: null, apiKeyPreview: null, source: null,
+  });
+  const described = describeLearningAiConfig({ baseUrl: "https://x.test/v1", apiKey: "abcdef", model: "m" }, "local-file");
+  assert.equal(described.configured, true);
+  assert.equal(described.apiKeyPreview, "****cdef");
+  assert.equal(described.source, "local-file");
 });

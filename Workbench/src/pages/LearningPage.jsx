@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 
 const EMPTY_DRAFT = { title: "", description: "", sourcesText: "", slug: "" };
@@ -110,7 +110,7 @@ export function LearningPage() {
       />
       {payload && !payload.aiConfigured ? (
         <p className="learning-notice">
-          AI 未配置：复制 Workbench/.env.example 为 Workbench/.env 并填入 LEARNING_AI_* 后，才能使用拆解、出题与评分。浏览与手工自评不受影响。
+          AI 未配置：前往<Link to="/system">系统状态</Link>页保存 LEARNING_AI 配置后，才能使用拆解、出题与评分。浏览与手工自评不受影响。
         </p>
       ) : null}
       {error ? <p className="learning-error">{error}</p> : null}

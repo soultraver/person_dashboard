@@ -1,3 +1,4 @@
+import { readFileSync, promises as fsp } from "node:fs";
 import path from "node:path";
 
 import { assertSlug } from "./learning.mjs";
@@ -145,6 +146,9 @@ export function buildVariantPrompt({ challenge, rubric, previousSummaries }) {
 }
 
 const AI_TIMEOUT_MS = 60_000;
+const DEFAULT_BASE_URL = "https://api.openai.com/v1";
+const DEFAULT_MODEL = "gpt-4o-mini";
+export const LEARNING_AI_CONFIG_FILE = "config/learning-ai.local.json";
 
 export function loadLearningAiConfig({ env = process.env, workbenchRoot = null } = {}) {
   if (workbenchRoot) {
@@ -159,9 +163,78 @@ export function loadLearningAiConfig({ env = process.env, workbenchRoot = null }
   const model = env.LEARNING_AI_MODEL?.trim();
   if (!apiKey) return null;
   return {
-    baseUrl: (baseUrl || "https://api.openai.com/v1").replace(/\/+$/, ""),
+    baseUrl: (baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, ""),
     apiKey,
-    model: model || "gpt-4o-mini",
+    model: model || DEFAULT_MODEL,
+  };
+}
+
+// ---- 系统设置页维护的本地配置文件（gitignored，优先级高于 .env） ----
+
+export function readLearningAiFileConfig(workbenchRoot) {
+  try {
+    const raw = JSON.parse(readFileSync(path.join(workbenchRoot, LEARNING_AI_CONFIG_FILE), "utf8"));
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    return {
+      baseUrl: typeof raw.baseUrl === "string" ? raw.baseUrl.trim() : "",
+      apiKey: typeof raw.apiKey === "string" ? raw.apiKey.trim() : "",
+      model: typeof raw.model === "string" ? raw.model.trim() : "",
+    };
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+export function resolveLearningAiConfig({ env = process.env, fileConfig = null } = {}) {
+  const envConfig = loadLearningAiConfig({ env });
+  if (fileConfig?.apiKey) {
+    return {
+      baseUrl: (fileConfig.baseUrl || envConfig?.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, ""),
+      apiKey: fileConfig.apiKey,
+      model: fileConfig.model || envConfig?.model || DEFAULT_MODEL,
+    };
+  }
+  return envConfig;
+}
+
+export async function saveLearningAiFileConfig(workbenchRoot, { baseUrl = "", apiKey = "", model = "" } = {}) {
+  const existing = readLearningAiFileConfig(workbenchRoot) ?? { baseUrl: "", apiKey: "", model: "" };
+  const next = {
+    schemaVersion: 1,
+    baseUrl: String(baseUrl || existing.baseUrl || "").trim(),
+    apiKey: String(apiKey || existing.apiKey || "").trim(),
+    model: String(model || existing.model || "").trim(),
+  };
+  if (!next.apiKey) {
+    const error = new Error("保存 AI 配置需要 API Key（首次保存时必填）。");
+    error.code = "LEARNING_AI_KEY_REQUIRED";
+    throw error;
+  }
+  if (next.baseUrl && !/^https?:\/\//.test(next.baseUrl)) {
+    const error = new Error("Base URL 必须以 http:// 或 https:// 开头。");
+    error.code = "INVALID_LEARNING_AI_BASE_URL";
+    throw error;
+  }
+  const filePath = path.join(workbenchRoot, LEARNING_AI_CONFIG_FILE);
+  await fsp.mkdir(path.dirname(filePath), { recursive: true });
+  const temporary = `${filePath}.tmp-${process.pid}`;
+  await fsp.writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  await fsp.rename(temporary, filePath);
+  return next;
+}
+
+export function describeLearningAiConfig(config, source = null) {
+  if (!config) {
+    return { configured: false, baseUrl: null, model: null, apiKeyPreview: null, source: null };
+  }
+  const key = String(config.apiKey ?? "");
+  return {
+    configured: true,
+    baseUrl: config.baseUrl,
+    model: config.model,
+    apiKeyPreview: key.length > 4 ? `****${key.slice(-4)}` : "****",
+    source: source ?? "unknown",
   };
 }
 

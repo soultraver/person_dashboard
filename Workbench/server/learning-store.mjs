@@ -111,12 +111,13 @@ export function createLearningStore({ vaultRoot, ai = null }) {
   }
 
   function requireAi() {
-    if (!ai) {
-      const error = new Error("AI 未配置：请在 Workbench/.env 配置 LEARNING_AI_BASE_URL / LEARNING_AI_API_KEY / LEARNING_AI_MODEL。");
+    const client = typeof ai === "function" ? ai() : ai;
+    if (!client) {
+      const error = new Error("AI 未配置：请在「系统状态」页保存 LEARNING_AI 配置，或在 Workbench/.env 配置 LEARNING_AI_BASE_URL / LEARNING_AI_API_KEY / LEARNING_AI_MODEL。");
       error.code = "AI_NOT_CONFIGURED";
       throw error;
     }
-    return ai;
+    return client;
   }
 
   return {

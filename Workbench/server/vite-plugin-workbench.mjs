@@ -35,7 +35,7 @@ import {
 import { booksPayload } from "./books.mjs";
 import { projectsPayload } from "./learning.mjs";
 import { createLearningStore } from "./learning-store.mjs";
-import { createLearningAiClient, loadLearningAiConfig } from "./learning-ai.mjs";
+import { createLearningAiClient, describeLearningAiConfig, loadLearningAiConfig, readLearningAiFileConfig, resolveLearningAiConfig, saveLearningAiFileConfig } from "./learning-ai.mjs";
 import {
   getSocialInsight,
   getSocialTrend,
@@ -204,6 +204,8 @@ function learningError(res, error) {
     AI_NOT_CONFIGURED: 503,
     DAG_INVALID: 422,
     EMPTY_SUBMISSION: 422,
+    LEARNING_AI_KEY_REQUIRED: 422,
+    INVALID_LEARNING_AI_BASE_URL: 422,
     LEVEL_LOCKED: 409,
     LEVEL_MASTERED: 409,
     ATTEMPT_NOT_PENDING: 409,
@@ -806,11 +808,21 @@ export function workbenchApiPlugin({
     reason: "manual",
     ...options,
   });
-  const learningAiConfig = loadLearningAiConfig({ workbenchRoot });
-  const learningAiClient = learningAiConfig ? createLearningAiClient(learningAiConfig) : null;
+  loadLearningAiConfig({ workbenchRoot }); // 启动时把 .env 灌入 process.env
+  let learningAi = { config: null, client: null, source: null };
+  const rebuildLearningAi = () => {
+    const fileConfig = readLearningAiFileConfig(workbenchRoot);
+    const config = resolveLearningAiConfig({ fileConfig });
+    learningAi = {
+      config,
+      client: config ? createLearningAiClient(config) : null,
+      source: !config ? null : fileConfig?.apiKey ? "local-file" : "env",
+    };
+  };
+  rebuildLearningAi();
   const learningStore = createLearningStore({
     vaultRoot,
-    ai: learningAiClient,
+    ai: () => learningAi.client,
   });
 
   async function indexedReaderDocument(documentId) {
@@ -1018,6 +1030,23 @@ export function workbenchApiPlugin({
             return json(res, 200, await loadAttentionStrategy(workbenchRoot));
           }
 
+          if (req.method === "GET" && url.pathname === "/api/config/learning-ai") {
+            return json(res, 200, describeLearningAiConfig(learningAi.config, learningAi.source));
+          }
+
+          if (req.method === "PUT" && url.pathname === "/api/config/learning-ai") {
+            try {
+              const body = await readJson(req, 8 * 1024);
+              await saveLearningAiFileConfig(workbenchRoot, {
+                baseUrl: typeof body.baseUrl === "string" ? body.baseUrl : "",
+                apiKey: typeof body.apiKey === "string" ? body.apiKey : "",
+                model: typeof body.model === "string" ? body.model : "",
+              });
+              rebuildLearningAi();
+              return json(res, 200, describeLearningAiConfig(learningAi.config, learningAi.source));
+            } catch (error) { return learningError(res, error); }
+          }
+
           if (req.method === "GET" && url.pathname === "/api/materials") {
             const [current, readingState] = await Promise.all([
               currentIndex(),
@@ -1033,7 +1062,7 @@ export function workbenchApiPlugin({
           if (req.method === "GET" && url.pathname === "/api/learning/projects") {
             return json(res, 200, {
               ...projectsPayload(await currentIndex()),
-              aiConfigured: Boolean(learningAiConfig),
+              aiConfigured: Boolean(learningAi.config),
             });
           }
 
@@ -1042,7 +1071,7 @@ export function workbenchApiPlugin({
             try {
               return json(res, 200, {
                 ...(await learningStore.readProjectDetail(learningProjectMatch[1])),
-                aiConfigured: Boolean(learningAiConfig),
+                aiConfigured: Boolean(learningAi.config),
               });
             } catch (error) { return learningError(res, error); }
           }
@@ -1144,7 +1173,7 @@ export function workbenchApiPlugin({
           // AI 代理端点
           if (req.method === "POST" && url.pathname === "/api/learning/ai/decompose") {
             try {
-              if (!learningAiClient) throw Object.assign(new Error("AI 未配置"), { code: "AI_NOT_CONFIGURED" });
+              if (!learningAi.client) throw Object.assign(new Error("AI 未配置"), { code: "AI_NOT_CONFIGURED" });
               const body = await readJson(req, 256 * 1024);
               const sourcesText = Array.isArray(body.sources)
                 ? (await Promise.all(body.sources.map(async (ref) => {
@@ -1153,7 +1182,7 @@ export function workbenchApiPlugin({
                     try { return await readFile(absolute, "utf8"); } catch { return ""; }
                   }))).join("\n\n")
                 : "";
-              return json(res, 200, await learningAiClient.decompose({
+              return json(res, 200, await learningAi.client.decompose({
                 title: String(body.title ?? ""), description: String(body.description ?? ""), sourcesText,
               }));
             } catch (error) { return learningError(res, error); }
@@ -1161,9 +1190,9 @@ export function workbenchApiPlugin({
 
           if (req.method === "POST" && url.pathname === "/api/learning/ai/challenge") {
             try {
-              if (!learningAiClient) throw Object.assign(new Error("AI 未配置"), { code: "AI_NOT_CONFIGURED" });
+              if (!learningAi.client) throw Object.assign(new Error("AI 未配置"), { code: "AI_NOT_CONFIGURED" });
               const body = await readJson(req, 256 * 1024);
-              return json(res, 200, await learningAiClient.challenge({
+              return json(res, 200, await learningAi.client.challenge({
                 projectTitle: String(body.project_title ?? ""),
                 levels: Array.isArray(body.levels) ? body.levels : [],
               }));
