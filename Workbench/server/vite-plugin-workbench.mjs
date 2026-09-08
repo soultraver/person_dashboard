@@ -1064,6 +1064,112 @@ export function workbenchApiPlugin({
             } catch (error) { return learningError(res, error); }
           }
 
+          if (req.method === "POST" && url.pathname === "/api/learning/projects") {
+            try {
+              const body = await readJson(req, 64 * 1024);
+              const created = await learningStore.createProject({
+                title: String(body.title ?? "").trim(),
+                description: String(body.description ?? ""),
+                sources: Array.isArray(body.sources) ? body.sources.map(String) : [],
+                slug: body.slug,
+              });
+              await refreshIndex({ reason: "learning" });
+              return json(res, 200, created);
+            } catch (error) { return learningError(res, error); }
+          }
+
+          const publishMatch = url.pathname.match(/^\/api\/learning\/projects\/([a-z0-9-]+)\/levels:publish$/);
+          if (req.method === "POST" && publishMatch) {
+            try {
+              const body = await readJson(req, 256 * 1024);
+              const result = await learningStore.publishLevels(publishMatch[1], body.levels ?? []);
+              await refreshIndex({ reason: "learning" });
+              return json(res, 200, result);
+            } catch (error) { return learningError(res, error); }
+          }
+
+          if (req.method === "PUT" && learningLevelMatch) {
+            try {
+              const body = await readJson(req, 256 * 1024);
+              const result = await learningStore.updateLevel(learningLevelMatch[1], learningLevelMatch[2], body);
+              await refreshIndex({ reason: "learning" });
+              return json(res, 200, result);
+            } catch (error) { return learningError(res, error); }
+          }
+
+          const submitMatch = url.pathname.match(/^\/api\/learning\/projects\/([a-z0-9-]+)\/levels\/([a-z0-9-]+)\/submit$/);
+          if (req.method === "POST" && submitMatch) {
+            try {
+              const body = await readJson(req, 512 * 1024);
+              const result = await learningStore.submitAttempt(submitMatch[1], submitMatch[2], {
+                contentMd: String(body.content_md ?? ""),
+                vaultRefs: Array.isArray(body.vault_refs) ? body.vault_refs.map(String) : [],
+              });
+              await refreshIndex({ reason: "learning" });
+              return json(res, 200, result);
+            } catch (error) { return learningError(res, error); }
+          }
+
+          const probeMatch = url.pathname.match(/^\/api\/learning\/projects\/([a-z0-9-]+)\/levels\/([a-z0-9-]+)\/probe$/);
+          if (req.method === "POST" && probeMatch) {
+            try {
+              const body = await readJson(req, 256 * 1024);
+              const result = await learningStore.answerProbe(probeMatch[1], probeMatch[2], String(body.attempt_id ?? ""), {
+                answers: Array.isArray(body.answers) ? body.answers.map(String) : [],
+              });
+              await refreshIndex({ reason: "learning" });
+              return json(res, 200, result);
+            } catch (error) { return learningError(res, error); }
+          }
+
+          const retryMatch = url.pathname.match(/^\/api\/learning\/projects\/([a-z0-9-]+)\/levels\/([a-z0-9-]+)\/retry$/);
+          if (req.method === "POST" && retryMatch) {
+            try {
+              const result = await learningStore.retryVariant(retryMatch[1], retryMatch[2]);
+              await refreshIndex({ reason: "learning" });
+              return json(res, 200, result);
+            } catch (error) { return learningError(res, error); }
+          }
+
+          const selfAssessMatch = url.pathname.match(/^\/api\/learning\/projects\/([a-z0-9-]+)\/levels\/([a-z0-9-]+)\/self-assess$/);
+          if (req.method === "POST" && selfAssessMatch) {
+            try {
+              const body = await readJson(req, 64 * 1024);
+              const result = await learningStore.selfAssess(selfAssessMatch[1], selfAssessMatch[2], { score: body.score });
+              await refreshIndex({ reason: "learning" });
+              return json(res, 200, result);
+            } catch (error) { return learningError(res, error); }
+          }
+
+          // AI 代理端点
+          if (req.method === "POST" && url.pathname === "/api/learning/ai/decompose") {
+            try {
+              if (!learningAiClient) throw Object.assign(new Error("AI 未配置"), { code: "AI_NOT_CONFIGURED" });
+              const body = await readJson(req, 256 * 1024);
+              const sourcesText = Array.isArray(body.sources)
+                ? (await Promise.all(body.sources.map(async (ref) => {
+                    const absolute = path.join(vaultRoot, String(ref));
+                    if (!absolute.startsWith(vaultRoot)) return "";
+                    try { return await readFile(absolute, "utf8"); } catch { return ""; }
+                  }))).join("\n\n")
+                : "";
+              return json(res, 200, await learningAiClient.decompose({
+                title: String(body.title ?? ""), description: String(body.description ?? ""), sourcesText,
+              }));
+            } catch (error) { return learningError(res, error); }
+          }
+
+          if (req.method === "POST" && url.pathname === "/api/learning/ai/challenge") {
+            try {
+              if (!learningAiClient) throw Object.assign(new Error("AI 未配置"), { code: "AI_NOT_CONFIGURED" });
+              const body = await readJson(req, 256 * 1024);
+              return json(res, 200, await learningAiClient.challenge({
+                projectTitle: String(body.project_title ?? ""),
+                levels: Array.isArray(body.levels) ? body.levels : [],
+              }));
+            } catch (error) { return learningError(res, error); }
+          }
+
           if (req.method === "GET" && url.pathname === "/api/materials/folder") {
             const [current, readingState] = await Promise.all([
               currentIndex(),
