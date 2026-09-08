@@ -186,3 +186,130 @@ export function replaceSection(body, heading, content) {
   if (!replaced) output.push("", `## ${heading}`, content, "");
   return output.join("\n").replace(/\n{3,}/g, "\n\n");
 }
+
+// ---- DAG ----
+
+export function validateDag(levels) {
+  const errors = [];
+  const known = new Set(levels.map((entry) => entry.slug));
+  for (const entry of levels) {
+    for (const dependency of entry.frontmatter.depends_on ?? []) {
+      if (!known.has(dependency)) {
+        errors.push(`关卡 ${entry.slug} 依赖了不存在的关卡: ${dependency}`);
+      }
+    }
+  }
+  // 环检测：三色 DFS
+  const visiting = new Set();
+  const done = new Set();
+  const bySlug = new Map(levels.map((entry) => [entry.slug, entry]));
+  const visit = (slug, trail) => {
+    if (done.has(slug)) return;
+    if (visiting.has(slug)) {
+      errors.push(`依赖存在环: ${[...trail, slug].join(" -> ")}`);
+      return;
+    }
+    visiting.add(slug);
+    for (const dependency of bySlug.get(slug)?.frontmatter.depends_on ?? []) {
+      if (known.has(dependency)) visit(dependency, [...trail, slug]);
+    }
+    visiting.delete(slug);
+    done.add(slug);
+  };
+  for (const entry of levels) visit(entry.slug, []);
+  return { errors };
+}
+
+// ---- 状态与进度 ----
+
+export function buildLevelStates(levels) {
+  const states = new Map();
+  const bySlug = new Map(levels.map((entry) => [entry.slug, entry]));
+  const resolve = (slug) => {
+    if (states.has(slug)) return states.get(slug);
+    const entry = bySlug.get(slug);
+    const frontmatter = entry.frontmatter;
+    let effectiveStatus = frontmatter.status;
+    if (effectiveStatus === "locked") {
+      const unlocked = (frontmatter.depends_on ?? []).every(
+        (dependency) => resolve(dependency).effectiveStatus === "mastered",
+      );
+      if (unlocked) effectiveStatus = "available";
+    }
+    const state = {
+      slug,
+      effectiveStatus,
+      passScore: frontmatter.pass_score ?? DEFAULT_PASS_SCORE,
+    };
+    states.set(slug, state);
+    return state;
+  };
+  for (const entry of levels) resolve(entry.slug);
+  return states;
+}
+
+export function computeProgress(levels) {
+  const total = levels.length;
+  const mastered = levels.filter((entry) => entry.frontmatter.status === "mastered").length;
+  return { total, mastered, percent: total === 0 ? 0 : Math.round((mastered / total) * 100) };
+}
+
+// ---- payload ----
+
+function isLearningDocument(document) {
+  return (
+    document.path.startsWith(`${LEARNING_ROOT}/`) &&
+    !document.path.split("/").some((segment) => segment.startsWith("."))
+  );
+}
+
+export function projectsPayload(index) {
+  const projects = new Map();
+  const levelsByProject = new Map();
+  for (const document of index?.documents ?? []) {
+    if (!isLearningDocument(document)) continue;
+    const frontmatter = document.frontmatter ?? {};
+    if (frontmatter.type === "learning-project") {
+      projects.set(frontmatter.slug, {
+        slug: frontmatter.slug,
+        title: frontmatter.title,
+        description: frontmatter.description ?? "",
+        created: frontmatter.created ?? null,
+        path: document.path,
+      });
+    }
+    if (frontmatter.type === "learning-level" && frontmatter.project) {
+      if (!levelsByProject.has(frontmatter.project)) levelsByProject.set(frontmatter.project, []);
+      levelsByProject.get(frontmatter.project).push({ slug: document.fileName?.replace(/\.md$/, ""), frontmatter });
+    }
+  }
+  const list = [...projects.values()].map((project) => ({
+    ...project,
+    progress: computeProgress(levelsByProject.get(project.slug) ?? []),
+  }));
+  list.sort((left, right) => left.slug.localeCompare(right.slug, "en"));
+  return { generatedAt: index?.generatedAt ?? null, total: list.length, projects: list };
+}
+
+export function projectDetailPayload(project, levels, attemptCounts = new Map()) {
+  const states = buildLevelStates(levels);
+  return {
+    slug: project.frontmatter.slug,
+    title: project.frontmatter.title,
+    description: project.frontmatter.description ?? "",
+    sources: project.frontmatter.sources ?? [],
+    body: project.body,
+    progress: computeProgress(levels),
+    levels: levels.map((entry) => ({
+      slug: entry.slug,
+      title: entry.frontmatter.title,
+      status: entry.frontmatter.status,
+      effectiveStatus: states.get(entry.slug).effectiveStatus,
+      passScore: states.get(entry.slug).passScore,
+      mastery: entry.frontmatter.mastery ?? 0,
+      verifiedBy: entry.frontmatter.verified_by ?? "none",
+      dependsOn: entry.frontmatter.depends_on ?? [],
+      attemptCount: attemptCounts.get(entry.slug) ?? 0,
+    })),
+  };
+}
