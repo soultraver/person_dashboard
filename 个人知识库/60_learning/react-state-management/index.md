@@ -5,8 +5,8 @@ slug: react-state-management
 description: 合成演示项目：从重渲染原理到 Zustand 实践的闯关地图（synthetic demo）
 created: 2026-09-01T09:00:00+08:00
 sources: []
-levels: [react-rerender, context-basics, zustand-store]
-progress: {"total": 3, "mastered": 1, "percent": 33}
+levels: [context-basics, react-rerender, zustand-store]
+progress: {"total":3,"mastered":2,"percent":67}
 ---
 
 # 学习 React 状态管理

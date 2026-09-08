@@ -2,12 +2,12 @@
 type: learning-level
 project: react-state-management
 title: 用 Context 分层共享状态
-status: available
-mastery: 0
-verified_by: none
+status: mastered
+mastery: 100
+verified_by: self-assessed
 pass_score: null
 depends_on: [react-rerender]
-updated: 2026-09-01T20:00:00+08:00
+updated: 2026-09-08T08:01:03.781Z
 ---
 
 ## 知识点笔记

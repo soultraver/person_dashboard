@@ -54,5 +54,9 @@
     "vite": "6.4.2",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0",
+    "rebrowser-playwright": "^1.52.0"
   }
 }
